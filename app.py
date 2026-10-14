@@ -1,85 +1,112 @@
+
 import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client
-from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, datetime
 import pandas as pd
-import json
-import html
 import random
-import time as time_module
+import html
 
 st.set_page_config(
-    page_title="My Study & Group Hub",
+    page_title="My Study Planner",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# ---------------------------------------------------------
-# THEME DEFINITIONS
-# ---------------------------------------------------------
+# =========================================================
+# THEMES: 5 LIGHT + 5 DARK
+# =========================================================
 THEMES = {
     "Sky Blue": {
-        "bg": "#F3F8FF",
-        "card": "#FFFFFF",
-        "text": "#203C68",
-        "muted": "#647A9C",
-        "primary": "#4B91F1",
-        "soft": "#DFEDFF",
-        "border": "#D8E6FA",
-        "accent": "#B8D9FF",
+        "bg": "#F3F8FF", "card": "#FFFFFF", "text": "#203C68",
+        "muted": "#647A9C", "primary": "#4B91F1", "soft": "#DFEDFF",
+        "border": "#D8E6FA", "accent": "#B8D9FF",
     },
     "Lavender": {
-        "bg": "#F8F5FF",
-        "card": "#FFFFFF",
-        "text": "#40345F",
-        "muted": "#81739D",
-        "primary": "#9175E8",
-        "soft": "#EAE2FF",
-        "border": "#E3D9FA",
-        "accent": "#D4C6FF",
+        "bg": "#F8F5FF", "card": "#FFFFFF", "text": "#40345F",
+        "muted": "#81739D", "primary": "#9175E8", "soft": "#EAE2FF",
+        "border": "#E3D9FA", "accent": "#D4C6FF",
     },
     "Mint": {
-        "bg": "#F1FAF5",
-        "card": "#FFFFFF",
-        "text": "#245343",
-        "muted": "#688B7D",
-        "primary": "#38A77C",
-        "soft": "#DDF5E9",
-        "border": "#CDEBDD",
-        "accent": "#B5E8D0",
+        "bg": "#F1FAF5", "card": "#FFFFFF", "text": "#245343",
+        "muted": "#688B7D", "primary": "#38A77C", "soft": "#DDF5E9",
+        "border": "#CDEBDD", "accent": "#B5E8D0",
     },
     "Peach": {
-        "bg": "#FFF7F1",
-        "card": "#FFFFFF",
-        "text": "#704534",
-        "muted": "#A17D6B",
-        "primary": "#E99568",
-        "soft": "#FFE7D9",
-        "border": "#F5DDCE",
-        "accent": "#FFD0B4",
+        "bg": "#FFF7F1", "card": "#FFFFFF", "text": "#704534",
+        "muted": "#A17D6B", "primary": "#E99568", "soft": "#FFE7D9",
+        "border": "#F5DDCE", "accent": "#FFD0B4",
     },
     "Ocean Blue": {
-        "bg": "#EDF8FC",
-        "card": "#FFFFFF",
-        "text": "#123C59",
-        "muted": "#587D96",
-        "primary": "#1687B5",
-        "soft": "#D5F0FA",
-        "border": "#C6E7F3",
-        "accent": "#9AD9EF",
+        "bg": "#EDF8FC", "card": "#FFFFFF", "text": "#123C59",
+        "muted": "#587D96", "primary": "#1687B5", "soft": "#D5F0FA",
+        "border": "#C6E7F3", "accent": "#9AD9EF",
+    },
+    "Dark Sky Blue": {
+        "bg": "#101827", "card": "#1B2638", "text": "#E5EEFF",
+        "muted": "#A1B2CE", "primary": "#70A9FF", "soft": "#263B59",
+        "border": "#35445C", "accent": "#8CC5FF",
+    },
+    "Dark Lavender": {
+        "bg": "#191426", "card": "#251D35", "text": "#F0E8FF",
+        "muted": "#B9A9D4", "primary": "#B49AFF", "soft": "#38294F",
+        "border": "#4B3A64", "accent": "#D1BFFF",
+    },
+    "Dark Mint": {
+        "bg": "#101F1B", "card": "#1B3029", "text": "#E1F8EB",
+        "muted": "#A2C7B4", "primary": "#62D3A3", "soft": "#25493A",
+        "border": "#355C4A", "accent": "#9CEBC4",
+    },
+    "Dark Peach": {
+        "bg": "#251914", "card": "#35251F", "text": "#FFE9DE",
+        "muted": "#D1AA98", "primary": "#FFAB80", "soft": "#50352A",
+        "border": "#694638", "accent": "#FFC5A7",
+    },
+    "Dark Ocean Blue": {
+        "bg": "#0D1D2A", "card": "#162C3C", "text": "#E0F5FF",
+        "muted": "#9DBDCE", "primary": "#42B9E8", "soft": "#1D3D52",
+        "border": "#2B5269", "accent": "#83DEFF",
     },
 }
 
 if "theme" not in st.session_state:
     st.session_state.theme = "Sky Blue"
 
+if "focus_end" not in st.session_state:
+    st.session_state.focus_end = None
+
+if "focus_task" not in st.session_state:
+    st.session_state.focus_task = ""
+
+# =========================================================
+# HEADER
+# =========================================================
+header_left, header_right = st.columns([4, 1.5])
+
+with header_left:
+    st.markdown("## 📚 My Study Planner")
+    st.caption(
+        "Plan thoughtfully · Collaborate happily · Achieve your goals"
+    )
+
+with header_right:
+    chosen_theme = st.selectbox(
+        "🎨 Choose your theme",
+        list(THEMES.keys()),
+        index=list(THEMES.keys()).index(st.session_state.theme),
+        key="theme_selector",
+    )
+
+    if chosen_theme != st.session_state.theme:
+        st.session_state.theme = chosen_theme
+        st.rerun()
+
 theme = THEMES[st.session_state.theme]
 
-# ---------------------------------------------------------
-# STYLING
-# ---------------------------------------------------------
+# =========================================================
+# STYLING AND ANIMATIONS
+# =========================================================
 st.markdown(
     f"""
     <style>
@@ -91,11 +118,13 @@ st.markdown(
         --app-primary: {theme["primary"]};
         --app-soft: {theme["soft"]};
         --app-border: {theme["border"]};
+        --app-accent: {theme["accent"]};
     }}
 
     .stApp {{
         background: var(--app-bg);
         color: var(--app-text);
+        transition: background .35s ease;
     }}
 
     [data-testid="stHeader"] {{
@@ -106,16 +135,9 @@ st.markdown(
         max-width: 1200px;
         padding-top: 1.5rem;
         padding-bottom: 3rem;
-        padding-left: 1.2rem;
-        padding-right: 1.2rem;
     }}
 
-    h1, h2, h3 {{
-        color: var(--app-text) !important;
-        letter-spacing: -0.4px;
-    }}
-
-    p, label, .stMarkdown {{
+    h1, h2, h3, h4, p, label, .stMarkdown {{
         color: var(--app-text);
     }}
 
@@ -124,7 +146,13 @@ st.markdown(
         border: 1px solid var(--app-border);
         border-radius: 18px;
         padding: 16px 18px;
-        box-shadow: 0 4px 15px rgba(55, 90, 130, 0.04);
+        box-shadow: 0 4px 15px rgba(55,90,130,.06);
+        transition: transform .2s ease, box-shadow .2s ease;
+    }}
+
+    [data-testid="stMetric"]:hover {{
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(55,90,130,.12);
     }}
 
     [data-testid="stMetricLabel"] {{
@@ -135,45 +163,35 @@ st.markdown(
         color: var(--app-text) !important;
     }}
 
-    .stButton > button,
-    .stDownloadButton > button {{
+    .stButton > button, .stDownloadButton > button {{
         min-height: 43px;
         border-radius: 12px;
         border: 1px solid var(--app-border);
         transition: transform .18s ease, box-shadow .18s ease;
     }}
 
-    .stButton > button:hover,
-    .stDownloadButton > button:hover {{
+    .stButton > button:hover, .stDownloadButton > button:hover {{
         transform: translateY(-2px);
-        box-shadow: 0 5px 14px rgba(55, 90, 130, 0.12);
+        box-shadow: 0 5px 14px rgba(55,90,130,.12);
         border-color: var(--app-primary);
     }}
 
-    div[data-testid="stForm"] {{
-        background: var(--app-card);
-        border: 1px solid var(--app-border);
-        padding: 18px;
-        border-radius: 18px;
-    }}
-
+    div[data-testid="stForm"],
     div[data-testid="stExpander"] {{
         background: var(--app-card);
         border: 1px solid var(--app-border);
-        border-radius: 14px;
+        border-radius: 18px;
     }}
 
     .hero {{
         background: linear-gradient(
-            120deg,
-            var(--app-soft),
-            var(--app-card) 75%
+            120deg, var(--app-soft), var(--app-card) 78%
         );
         border: 1px solid var(--app-border);
         border-radius: 24px;
         padding: 24px;
         margin-bottom: 20px;
-        animation: fadeUp .6s ease both;
+        animation: fadeUp .65s ease both;
     }}
 
     .hero-row {{
@@ -185,7 +203,7 @@ st.markdown(
 
     .hero h1 {{
         font-size: clamp(1.7rem, 4vw, 2.45rem);
-        margin: 0 0 8px 0;
+        margin: 0 0 8px;
     }}
 
     .hero p {{
@@ -193,7 +211,7 @@ st.markdown(
         margin: 0;
     }}
 
-    .buddy {{
+    .mascot {{
         font-size: 4rem;
         line-height: 1.1;
         display: inline-block;
@@ -201,7 +219,15 @@ st.markdown(
         transform-origin: bottom center;
     }}
 
-    .buddy-bubble {{
+    .mascot.happy {{
+        animation: happyBounce 1.5s ease-in-out infinite;
+    }}
+
+    .mascot.sad {{
+        animation: gentleSway 3s ease-in-out infinite;
+    }}
+
+    .mascot-bubble {{
         background: var(--app-card);
         color: var(--app-text);
         border: 1px solid var(--app-border);
@@ -209,7 +235,8 @@ st.markdown(
         padding: 12px 15px;
         margin-top: 10px;
         font-weight: 600;
-        box-shadow: 0 5px 18px rgba(55, 90, 130, .07);
+        max-width: 250px;
+        box-shadow: 0 5px 18px rgba(55,90,130,.07);
     }}
 
     .section-card {{
@@ -218,31 +245,7 @@ st.markdown(
         border-radius: 18px;
         padding: 18px;
         margin-bottom: 12px;
-    }}
-
-    .small-muted {{
-        color: var(--app-muted);
-        font-size: .9rem;
-    }}
-
-    .pill {{
-        display: inline-block;
-        padding: 5px 10px;
-        border-radius: 999px;
-        background: var(--app-soft);
-        color: var(--app-text);
-        font-size: .8rem;
-        font-weight: 600;
-    }}
-
-    .due-urgent {{
-        color: #C43C53;
-        font-weight: 700;
-    }}
-
-    .due-soon {{
-        color: #B66B18;
-        font-weight: 700;
+        animation: fadeUp .5s ease both;
     }}
 
     .progress-track {{
@@ -255,18 +258,25 @@ st.markdown(
 
     .progress-fill {{
         height: 100%;
-        background: linear-gradient(90deg, var(--app-primary), var(--app-accent, #8BC5FF));
+        background: linear-gradient(
+            90deg, var(--app-primary), var(--app-accent)
+        );
         border-radius: 99px;
-        transition: width .7s ease;
+        transition: width .8s ease;
     }}
 
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 8px;
+    .stTextInput input,
+    .stTextArea textarea,
+    .stNumberInput input,
+    [data-baseweb="select"] > div {{
+        background-color: var(--app-card);
+        color: var(--app-text);
+        border-color: var(--app-border);
     }}
 
-    .stTabs [data-baseweb="tab"] {{
-        border-radius: 12px;
-        padding: 10px 14px;
+    .small-muted {{
+        color: var(--app-muted);
+        font-size: .9rem;
     }}
 
     @keyframes buddyFloat {{
@@ -274,49 +284,41 @@ st.markdown(
         50% {{ transform: translateY(-9px) rotate(2deg); }}
     }}
 
+    @keyframes happyBounce {{
+        0%, 100% {{ transform: translateY(0) scale(1); }}
+        50% {{ transform: translateY(-12px) scale(1.06); }}
+    }}
+
+    @keyframes gentleSway {{
+        0%, 100% {{ transform: translateY(0) rotate(-3deg); }}
+        50% {{ transform: translateY(-3px) rotate(3deg); }}
+    }}
+
     @keyframes fadeUp {{
-        from {{ opacity: 0; transform: translateY(10px); }}
+        from {{ opacity: 0; transform: translateY(12px); }}
         to {{ opacity: 1; transform: translateY(0); }}
     }}
 
     @media (max-width: 768px) {{
-        .block-container {{
-            padding: 1rem .8rem 2rem .8rem;
-        }}
-        .hero {{
-            padding: 18px;
-            border-radius: 18px;
-        }}
-        .hero-row {{
-            align-items: flex-start;
-        }}
-        .buddy {{
-            font-size: 3rem;
-        }}
-        [data-testid="stMetric"] {{
-            padding: 10px;
-        }}
-        div[data-testid="stForm"] {{
-            padding: 12px;
-        }}
+        .block-container {{ padding: 1rem .8rem 2rem; }}
+        .hero {{ padding: 17px; border-radius: 18px; }}
+        .hero-row {{ align-items: flex-start; }}
+        .mascot {{ font-size: 3rem; }}
+        .mascot-bubble {{ font-size: .85rem; padding: 9px; }}
     }}
 
     @media (prefers-reduced-motion: reduce) {{
-        .buddy, .hero {{
-            animation: none !important;
-        }}
-        * {{
-            transition: none !important;
-        }}
+        .mascot, .hero, .section-card {{ animation: none !important; }}
+        * {{ transition: none !important; }}
     }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# ---------------------------------------------------------
-# CONNECTION
-# ---------------------------------------------------------
+# =========================================================
+# SUPABASE CONNECTION
+# =========================================================
 @st.cache_resource
 def connect_supabase():
     url = st.secrets["SUPABASE_URL"].strip().rstrip("/")
@@ -339,10 +341,9 @@ except Exception:
     )
     st.stop()
 
-
-# ---------------------------------------------------------
+# =========================================================
 # DATA HELPERS
-# ---------------------------------------------------------
+# =========================================================
 STATUS_OPTIONS = [
     "Not Started",
     "In Progress",
@@ -371,6 +372,15 @@ def load_assignments():
         .execute()
     )
     return result.data or []
+
+
+@st.cache_data(ttl=30)
+def cached_load_assignments(_cache_key):
+    return load_assignments()
+
+
+def refresh_data():
+    cached_load_assignments.clear()
 
 
 def days_remaining(due_date):
@@ -415,51 +425,20 @@ def safe_date(value):
         return None
 
 
-def refresh_data():
-    st.cache_data.clear()
-
-
-@st.cache_data(ttl=30)
-def cached_load_assignments(_cache_key):
-    return load_assignments()
-
-
 try:
     assignments = cached_load_assignments("assignments")
 except Exception as error:
     st.error("Couldn't load assignments from Supabase.")
     st.info(
-        "Check that the assignments table exists and your Supabase "
-        "API key and database policies are configured."
+        "Check that the assignments table exists and your API key "
+        "and database policies are configured."
     )
     st.caption(str(error))
     st.stop()
 
-
-# ---------------------------------------------------------
-# GLOBAL HEADER + THEME SELECTOR
-# ---------------------------------------------------------
-header_left, header_right = st.columns([4, 1.4])
-
-with header_left:
-    st.markdown("## 📚 My Study & Group Hub")
-    st.caption("Plan thoughtfully · Collaborate happily · Achieve your goals")
-
-with header_right:
-    chosen_theme = st.selectbox(
-        "🎨 Choose your theme",
-        list(THEMES.keys()),
-        index=list(THEMES.keys()).index(st.session_state.theme),
-        key="theme_selector",
-    )
-    if chosen_theme != st.session_state.theme:
-        st.session_state.theme = chosen_theme
-        st.rerun()
-
-
-# ---------------------------------------------------------
-# METRICS + PERSONALIZED MESSAGES
-# ---------------------------------------------------------
+# =========================================================
+# METRICS AND MOTIVATIONAL STUDY BUDDY
+# =========================================================
 today = date.today()
 
 incomplete = [
@@ -478,50 +457,59 @@ due_soon = [
     if days_remaining(a.get("due_date")) is not None
     and 0 <= days_remaining(a.get("due_date")) <= 7
 ]
-urgent = [
-    a for a in incomplete
-    if a.get("priority") == "Urgent"
-]
 
 total = len(assignments)
 completion_pct = round(len(completed) / total * 100) if total else 0
 
 if overdue:
-    buddy_message = random.choice([
-        "⏰ Time is ticking! Let's tackle one task at a time.",
-        "🚦 A deadline needs attention. You can make a plan!",
-        "💙 Take a breath, choose one priority, and begin.",
-    ])
-    buddy_face = "⏰"
+    buddy_face = "🥺"
+    buddy_mood = "sad"
+    buddy_message = (
+        "It's okay, Suchi. Let's tackle one overdue task at a time. 💙"
+    )
 elif total > 0 and completion_pct == 100:
-    buddy_message = "🏆 Amazing! Everything is complete. Time to celebrate!"
     buddy_face = "🥳"
+    buddy_mood = "happy"
+    buddy_message = (
+        "You did it, Suchi! Everything is complete. Celebrate! 🎉"
+    )
+elif due_soon:
+    buddy_face = "😮‍💨"
+    buddy_mood = "sad"
+    buddy_message = (
+        "Deadlines are getting closer. Let's make a little plan together!"
+    )
 elif completed:
-    buddy_message = random.choice([
-        "🎉 Well done! Every completed task is progress.",
-        "✨ Look at you go! Keep that momentum going.",
-        "💪 Small steps turn into big achievements.",
-    ])
     buddy_face = "🤗"
+    buddy_mood = "happy"
+    buddy_message = random.choice([
+        "Look at you go, Suchi! Every task is progress. ✨",
+        "Your effort is adding up. Keep that momentum going!",
+        "Proud of your progress! Remember to take breaks too. 💗",
+    ])
 else:
-    buddy_message = "🌱 Every big achievement starts with one small step."
     buddy_face = "😊"
-
+    buddy_mood = "happy"
+    buddy_message = (
+        "Hi Suchi! Every big achievement starts with one small step. 🌱"
+    )
 
 st.markdown(
     f"""
     <div class="hero">
       <div class="hero-row">
         <div>
-          <h1>Hey, MBA achiever! 👋</h1>
+          <h1>Hi Suchi! 👋</h1>
           <p>{today.strftime("%A, %d %B %Y")}</p>
           <p style="margin-top:8px">
-            Your goals are important. Let's make today count.
+            Your goals matter. Let's make today count.
           </p>
         </div>
-        <div style="text-align:center;min-width:95px">
-          <div class="buddy">{buddy_face}</div>
-          <div class="buddy-bubble">{html.escape(buddy_message)}</div>
+        <div style="text-align:center;min-width:105px">
+          <div class="mascot {buddy_mood}">{buddy_face}</div>
+          <div class="mascot-bubble">
+            {html.escape(buddy_message)}
+          </div>
         </div>
       </div>
     </div>
@@ -553,9 +541,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ---------------------------------------------------------
+# =========================================================
 # NAVIGATION
-# ---------------------------------------------------------
+# =========================================================
 page = st.selectbox(
     "📍 Where would you like to go?",
     [
@@ -570,28 +558,21 @@ page = st.selectbox(
     key="main_navigation",
 )
 
-
-# ---------------------------------------------------------
+# =========================================================
 # ADD ASSIGNMENT
-# ---------------------------------------------------------
+# =========================================================
 if page == "➕ Add Assignment":
     st.subheader("➕ Add a new assignment")
-    st.caption("Capture the details now, then focus on making progress.")
 
     with st.form("add_assignment", clear_on_submit=True):
-        course = st.text_input(
-            "Course *",
-            placeholder="e.g. Strategy, Finance, Marketing",
-        )
+        course = st.text_input("Course *")
 
         c1, c2 = st.columns(2)
         with c1:
             assignment_type = st.selectbox("Assignment type", TYPE_OPTIONS)
             status = st.selectbox("Status", STATUS_OPTIONS)
             priority = st.select_slider(
-                "Priority",
-                options=PRIORITY_OPTIONS,
-                value="Medium",
+                "Priority", options=PRIORITY_OPTIONS, value="Medium"
             )
             due_date = st.date_input(
                 "Due date",
@@ -600,18 +581,9 @@ if page == "➕ Add Assignment":
             )
 
         with c2:
-            category = st.text_input(
-                "Category / tag",
-                placeholder="e.g. Individual, Group 2, Exam",
-            )
-            group_name = st.text_input(
-                "Group name",
-                placeholder="e.g. Team Blue",
-            )
-            group_members = st.text_input(
-                "Group members",
-                placeholder="Names separated by commas",
-            )
+            category = st.text_input("Category / tag")
+            group_name = st.text_input("Group name")
+            group_members = st.text_input("Group members")
             estimated_hours = st.number_input(
                 "Estimated study hours",
                 min_value=0.0,
@@ -620,15 +592,8 @@ if page == "➕ Add Assignment":
                 step=0.5,
             )
 
-        remark = st.text_input(
-            "Remark",
-            placeholder="e.g. Waiting for feedback",
-        )
-        notes = st.text_area(
-            "Notes / action items",
-            placeholder="Instructions, meeting notes, next steps...",
-            height=120,
-        )
+        remark = st.text_input("Remark")
+        notes = st.text_area("Notes / action items", height=120)
 
         submitted = st.form_submit_button(
             "💾 Save Assignment",
@@ -653,20 +618,19 @@ if page == "➕ Add Assignment":
                     "remark": remark.strip() or None,
                     "notes": notes.strip() or None,
                 }
+
                 try:
                     supabase.table("assignments").insert(record).execute()
                     refresh_data()
-                    st.session_state["just_completed"] = False
                     st.success("Your assignment has been saved! 🌟")
                     st.toast("New goal added. You've got this! 🎯")
                     st.rerun()
                 except Exception as error:
                     show_error("save the assignment", error)
 
-
-# ---------------------------------------------------------
+# =========================================================
 # MANAGE ASSIGNMENTS
-# ---------------------------------------------------------
+# =========================================================
 elif page == "📝 Manage Assignments":
     st.subheader("📝 Manage your assignments")
 
@@ -688,54 +652,42 @@ elif page == "📝 Manage Assignments":
             with st.form("edit_assignment"):
                 st.markdown(f"### ✏️ {chosen.get('course', '')}")
                 course = st.text_input(
-                    "Course",
-                    value=chosen.get("course") or "",
+                    "Course", value=chosen.get("course") or ""
                 )
 
                 c1, c2 = st.columns(2)
                 with c1:
                     old_type = chosen.get("type")
-                    type_index = (
-                        TYPE_OPTIONS.index(old_type)
-                        if old_type in TYPE_OPTIONS else 0
-                    )
                     assignment_type = st.selectbox(
-                        "Type", TYPE_OPTIONS, index=type_index
+                        "Type", TYPE_OPTIONS,
+                        index=TYPE_OPTIONS.index(old_type)
+                        if old_type in TYPE_OPTIONS else 0,
                     )
 
                     old_status = chosen.get("status")
-                    status_index = (
-                        STATUS_OPTIONS.index(old_status)
-                        if old_status in STATUS_OPTIONS else 0
-                    )
                     status = st.selectbox(
-                        "Status", STATUS_OPTIONS, index=status_index
+                        "Status", STATUS_OPTIONS,
+                        index=STATUS_OPTIONS.index(old_status)
+                        if old_status in STATUS_OPTIONS else 0,
                     )
 
                     old_priority = chosen.get("priority") or "Medium"
-                    priority_index = (
-                        PRIORITY_OPTIONS.index(old_priority)
-                        if old_priority in PRIORITY_OPTIONS else 1
-                    )
                     priority = st.selectbox(
-                        "Priority",
-                        PRIORITY_OPTIONS,
-                        index=priority_index,
+                        "Priority", PRIORITY_OPTIONS,
+                        index=PRIORITY_OPTIONS.index(old_priority)
+                        if old_priority in PRIORITY_OPTIONS else 1,
                     )
 
                     due_date = st.date_input(
-                        "Due date",
-                        value=safe_date(chosen.get("due_date")),
+                        "Due date", value=safe_date(chosen.get("due_date"))
                     )
 
                 with c2:
                     category = st.text_input(
-                        "Category / tag",
-                        value=chosen.get("category") or "",
+                        "Category / tag", value=chosen.get("category") or ""
                     )
                     group_name = st.text_input(
-                        "Group name",
-                        value=chosen.get("group_name") or "",
+                        "Group name", value=chosen.get("group_name") or ""
                     )
                     group_members = st.text_input(
                         "Group members",
@@ -780,27 +732,30 @@ elif page == "📝 Manage Assignments":
                             "notes": notes.strip() or None,
                             "updated_at": datetime.now().astimezone().isoformat(),
                         }
+
                         try:
                             supabase.table("assignments").update(
                                 updates
                             ).eq("id", chosen["id"]).execute()
                             refresh_data()
+
                             if status == "Completed":
                                 st.balloons()
                                 st.toast("Fantastic work! 🎉")
                             else:
                                 st.success("Changes saved.")
+
                             st.rerun()
                         except Exception as error:
                             show_error("update the assignment", error)
 
-            st.divider()
             with st.expander("🗑️ Delete assignment"):
                 st.warning("Deleting an assignment cannot be undone.")
                 confirm = st.checkbox(
                     "I understand and want to delete this record.",
                     key=f"confirm_delete_{chosen['id']}",
                 )
+
                 if st.button(
                     "Delete permanently",
                     disabled=not confirm,
@@ -816,13 +771,12 @@ elif page == "📝 Manage Assignments":
                     except Exception as error:
                         show_error("delete the assignment", error)
 
-
-# ---------------------------------------------------------
+# =========================================================
 # DEADLINE PLANNER
-# ---------------------------------------------------------
+# =========================================================
 elif page == "🗓️ Deadline Planner":
     st.subheader("🗓️ Deadline Planner")
-    st.caption("See what's coming up so you can plan before the rush.")
+    st.caption("Plan ahead and avoid last-minute stress.")
 
     window = st.radio(
         "Show deadlines",
@@ -836,19 +790,29 @@ elif page == "🗓️ Deadline Planner":
     ]
 
     if window == "Overdue":
-        view = [a for a in dated if days_remaining(a["due_date"]) < 0]
+        view = [
+            a for a in dated
+            if days_remaining(a["due_date"]) is not None
+            and days_remaining(a["due_date"]) < 0
+        ]
     elif window == "Next 7 days":
         view = [
             a for a in dated
-            if 0 <= days_remaining(a["due_date"]) <= 7
+            if days_remaining(a["due_date"]) is not None
+            and 0 <= days_remaining(a["due_date"]) <= 7
         ]
     elif window == "Next 30 days":
         view = [
             a for a in dated
-            if 0 <= days_remaining(a["due_date"]) <= 30
+            if days_remaining(a["due_date"]) is not None
+            and 0 <= days_remaining(a["due_date"]) <= 30
         ]
     else:
-        view = [a for a in dated if days_remaining(a["due_date"]) >= 0]
+        view = [
+            a for a in dated
+            if days_remaining(a["due_date"]) is not None
+            and days_remaining(a["due_date"]) >= 0
+        ]
 
     view.sort(key=lambda a: a["due_date"])
 
@@ -857,47 +821,48 @@ elif page == "🗓️ Deadline Planner":
     else:
         for item in view:
             days = days_remaining(item["due_date"])
-            icon = "🚨" if days is not None and days < 0 else "📅"
+
             with st.container(border=True):
                 left, right = st.columns([3, 1])
+
                 with left:
                     st.markdown(
-                        f"**{icon} {item.get('course', 'Untitled')}**"
+                        f"**{'🚨' if days is not None and days < 0 else '📅'} "
+                        f"{item.get('course', 'Untitled')}**"
                     )
                     st.caption(
                         f"{item.get('type', 'Other')} · "
                         f"{item.get('group_name') or 'Individual'}"
                     )
                     st.write(deadline_label(item["due_date"]))
+
                 with right:
                     st.write(priority_icon(item.get("priority")))
                     st.caption(item.get("priority") or "Medium")
 
     st.divider()
     st.markdown("### 🧠 Plan your study time")
+
     remaining_hours = sum(
-        float(a.get("estimated_hours") or 0)
-        for a in incomplete
+        float(a.get("estimated_hours") or 0) for a in incomplete
     )
     st.metric("Estimated hours remaining", f"{remaining_hours:g} hrs")
+
     if remaining_hours:
         st.write(
-            f"If you study 2 hours per day, you'll need about "
-            f"{max(1, round(remaining_hours / 2))} study day(s) "
-            f"to cover the estimated workload."
+            f"At 2 hours per day, you'll need about "
+            f"{max(1, round(remaining_hours / 2))} study days."
         )
 
-
-# ---------------------------------------------------------
+# =========================================================
 # FOCUS TIMER
-# ---------------------------------------------------------
+# =========================================================
 elif page == "⏳ Focus Timer":
     st.subheader("⏳ Focus Studio")
-    st.write("Choose a task, focus for a while, and remember to take a break.")
+    st.write("Focus on one task, then give yourself a proper break.")
 
     task_options = ["General study session"] + [
-        a.get("course", "Untitled")
-        for a in incomplete
+        a.get("course", "Untitled") for a in incomplete
     ]
     focus_task = st.selectbox("What are you focusing on?", task_options)
 
@@ -910,9 +875,7 @@ elif page == "⏳ Focus Timer":
         )
     with c2:
         break_minutes = st.select_slider(
-            "Break (minutes)",
-            options=[3, 5, 10, 15],
-            value=5,
+            "Break (minutes)", options=[3, 5, 10, 15], value=5
         )
 
     st.markdown(
@@ -920,16 +883,11 @@ elif page == "⏳ Focus Timer":
         <div class="section-card" style="text-align:center">
           <div style="font-size:3rem">🍅</div>
           <h2>{focus_minutes} min focus · {break_minutes} min break</h2>
-          <p class="small-muted">{html.escape(focus_task)}</p>
-          <p>Put distractions away. You only need to focus on the next step.</p>
+          <p>{html.escape(focus_task)}</p>
+          <p>You've got this, Suchi! One step at a time. 💙</p>
         </div>
         """,
         unsafe_allow_html=True,
-    )
-
-    st.info(
-        "The timer below runs in this page while it is open. "
-        "If you refresh or leave the page, you may need to start again."
     )
 
     if st.button("▶️ Start focus timer", type="primary"):
@@ -939,7 +897,7 @@ elif page == "⏳ Focus Timer":
         st.session_state.focus_task = focus_task
         st.rerun()
 
-    if st.session_state.get("focus_end"):
+    if st.session_state.focus_end:
         remaining_seconds = max(
             0,
             int(st.session_state.focus_end - datetime.now().timestamp()),
@@ -949,29 +907,29 @@ elif page == "⏳ Focus Timer":
 
         if remaining_seconds == 0:
             st.balloons()
-            st.success("Focus session complete! Great job. Take a break. 🎉")
+            st.success("Focus session complete! Time for a break. 🎉")
             st.session_state.focus_end = None
         else:
             components.html(
-                f"""
+                """
                 <script>
                 setTimeout(() => window.parent.location.reload(), 1000);
                 </script>
                 """,
                 height=0,
             )
-            st.caption("Stay focused — one minute at a time.")
+            st.caption("Stay focused — your future self will thank you!")
+
             if st.button("Stop timer"):
                 st.session_state.focus_end = None
                 st.rerun()
 
-
-# ---------------------------------------------------------
+# =========================================================
 # GROUP HUB
-# ---------------------------------------------------------
+# =========================================================
 elif page == "👥 Group Hub":
     st.subheader("👥 Group Hub")
-    st.caption("A quick overview of group assignments and collaborators.")
+    st.caption("Your group assignments and collaborators.")
 
     group_assignments = [
         a for a in assignments
@@ -984,10 +942,7 @@ elif page == "👥 Group Hub":
         groups.setdefault(group, []).append(item)
 
     if not groups:
-        st.info(
-            "No group activities yet. Add a group name to an assignment "
-            "to see it here."
-        )
+        st.info("Add a group name to an assignment to see it here.")
     else:
         for group_name, items in groups.items():
             with st.expander(
@@ -997,9 +952,12 @@ elif page == "👥 Group Hub":
                 members = sorted({
                     member.strip()
                     for item in items
-                    for member in (item.get("group_members") or "").split(",")
+                    for member in (
+                        item.get("group_members") or ""
+                    ).split(",")
                     if member.strip()
                 })
+
                 if members:
                     st.write("**Members:** " + ", ".join(members))
                 else:
@@ -1014,15 +972,15 @@ elif page == "👥 Group Hub":
                         f"Deadline: {item.get('due_date') or 'Not set'} · "
                         f"Priority: {item.get('priority') or 'Medium'}"
                     )
+
                     if item.get("remark"):
                         st.write(f"Remark: {item['remark']}")
                     if item.get("notes"):
                         st.write(f"Notes: {item['notes']}")
 
-
-# ---------------------------------------------------------
-# ANALYTICS + EXPORT
-# ---------------------------------------------------------
+# =========================================================
+# ANALYTICS AND EXPORT
+# =========================================================
 elif page == "📊 Analytics & Export":
     st.subheader("📊 Study Analytics")
 
@@ -1030,25 +988,25 @@ elif page == "📊 Analytics & Export":
         df = pd.DataFrame(assignments)
 
         c1, c2 = st.columns(2)
+
         with c1:
             st.markdown("#### Assignments by status")
-            status_counts = (
+            st.bar_chart(
                 df["status"].fillna("Not Started").value_counts()
             )
-            st.bar_chart(status_counts)
 
         with c2:
             st.markdown("#### Assignments by priority")
             if "priority" in df.columns:
-                priority_counts = (
+                st.bar_chart(
                     df["priority"].fillna("Medium").value_counts()
                 )
-                st.bar_chart(priority_counts)
 
         st.markdown("#### Course workload")
         if "course" in df.columns:
-            course_counts = df["course"].fillna("Unspecified").value_counts()
-            st.bar_chart(course_counts)
+            st.bar_chart(
+                df["course"].fillna("Unspecified").value_counts()
+            )
 
         st.markdown("#### Estimated study hours")
         if "estimated_hours" in df.columns:
@@ -1061,25 +1019,25 @@ elif page == "📊 Analytics & Export":
 
     st.divider()
     st.markdown("### 📥 Export your data")
-    st.write("Download a CSV copy of your assignments for Excel or backup.")
 
     if assignments:
-        export_df = pd.DataFrame(assignments)
-        csv_data = export_df.to_csv(index=False).encode("utf-8-sig")
+        csv_data = pd.DataFrame(assignments).to_csv(
+            index=False
+        ).encode("utf-8-sig")
+
         st.download_button(
             "⬇️ Download assignments as CSV",
             data=csv_data,
-            file_name=f"study_hub_{today.isoformat()}.csv",
+            file_name=f"study_planner_{today.isoformat()}.csv",
             mime="text/csv",
             use_container_width=True,
         )
     else:
         st.button("⬇️ Download assignments as CSV", disabled=True)
 
-
-# ---------------------------------------------------------
+# =========================================================
 # DASHBOARD
-# ---------------------------------------------------------
+# =========================================================
 elif page == "🏡 Dashboard":
     st.subheader("✨ Your study space")
     st.caption("Choose one small action to move forward today.")
@@ -1089,6 +1047,7 @@ elif page == "🏡 Dashboard":
     with quick1:
         st.markdown("### ➕ Add a task")
         st.write("Capture a new assignment before you forget.")
+
         if st.button("Add assignment", use_container_width=True):
             st.session_state.main_navigation = "➕ Add Assignment"
             st.rerun()
@@ -1096,6 +1055,7 @@ elif page == "🏡 Dashboard":
     with quick2:
         st.markdown("### ⏳ Focus time")
         st.write("Set aside a quiet block for deep work.")
+
         if st.button("Open focus timer", use_container_width=True):
             st.session_state.main_navigation = "⏳ Focus Timer"
             st.rerun()
@@ -1103,6 +1063,7 @@ elif page == "🏡 Dashboard":
     with quick3:
         st.markdown("### 🗓️ Plan ahead")
         st.write("See deadlines before they become urgent.")
+
         if st.button("View deadlines", use_container_width=True):
             st.session_state.main_navigation = "🗓️ Deadline Planner"
             st.rerun()
@@ -1110,10 +1071,7 @@ elif page == "🏡 Dashboard":
     st.divider()
     st.markdown("### 🔔 Needs your attention")
 
-    attention = overdue + [
-        a for a in due_soon
-        if a not in overdue
-    ]
+    attention = overdue + [a for a in due_soon if a not in overdue]
     attention.sort(
         key=lambda a: (
             days_remaining(a.get("due_date"))
@@ -1124,9 +1082,9 @@ elif page == "🏡 Dashboard":
 
     if attention:
         for item in attention[:6]:
-            days = days_remaining(item.get("due_date"))
             with st.container(border=True):
                 c1, c2 = st.columns([3, 1])
+
                 with c1:
                     st.markdown(
                         f"**{item.get('course', 'Untitled')}** "
@@ -1136,6 +1094,7 @@ elif page == "🏡 Dashboard":
                         f"{deadline_label(item.get('due_date'))} · "
                         f"{item.get('status', 'Not Started')}"
                     )
+
                 with c2:
                     st.caption(item.get("priority") or "Medium")
     else:
@@ -1145,20 +1104,14 @@ elif page == "🏡 Dashboard":
     st.markdown("### 📚 All assignments")
 
     f1, f2, f3 = st.columns(3)
+
     with f1:
-        search = st.text_input(
-            "🔎 Search",
-            placeholder="Course, group, notes...",
-        )
+        search = st.text_input("🔎 Search", placeholder="Course, group, notes...")
     with f2:
-        status_filter = st.selectbox(
-            "Status",
-            ["All"] + STATUS_OPTIONS,
-        )
+        status_filter = st.selectbox("Status", ["All"] + STATUS_OPTIONS)
     with f3:
         priority_filter = st.selectbox(
-            "Priority",
-            ["All"] + PRIORITY_OPTIONS,
+            "Priority", ["All"] + PRIORITY_OPTIONS
         )
 
     filtered = assignments.copy()
@@ -1167,10 +1120,13 @@ elif page == "🏡 Dashboard":
         filtered = [
             a for a in filtered if a.get("status") == status_filter
         ]
+
     if priority_filter != "All":
         filtered = [
-            a for a in filtered if a.get("priority", "Medium") == priority_filter
+            a for a in filtered
+            if a.get("priority", "Medium") == priority_filter
         ]
+
     if search.strip():
         term = search.strip().lower()
         filtered = [
@@ -1188,14 +1144,14 @@ elif page == "🏡 Dashboard":
         for item in filtered:
             with st.container(border=True):
                 title_col, status_col = st.columns([3, 1])
+
                 with title_col:
-                    st.markdown(
-                        f"**{item.get('course', 'Untitled')}**"
-                    )
+                    st.markdown(f"**{item.get('course', 'Untitled')}**")
                     st.caption(
                         f"{item.get('type', 'Other')} · "
                         f"{item.get('category') or 'No category'}"
                     )
+
                 with status_col:
                     st.caption(item.get("status", "Not Started"))
 
@@ -1211,15 +1167,15 @@ elif page == "🏡 Dashboard":
                     f"⏳ {float(item.get('estimated_hours') or 0):g} hrs"
                 )
 
-                if item.get("due_date"):
+                if item.get("due_date") and item.get("status") != "Completed":
                     days = days_remaining(item["due_date"])
-                    if item.get("status") != "Completed":
-                        if days is not None and days < 0:
-                            st.error(deadline_label(item["due_date"]))
-                        elif days is not None and days <= 3:
-                            st.warning(deadline_label(item["due_date"]))
-                        else:
-                            st.caption(deadline_label(item["due_date"]))
+
+                    if days is not None and days < 0:
+                        st.error(deadline_label(item["due_date"]))
+                    elif days is not None and days <= 3:
+                        st.warning(deadline_label(item["due_date"]))
+                    else:
+                        st.caption(deadline_label(item["due_date"]))
 
                 if item.get("group_name"):
                     st.write(f"👥 **Group:** {item['group_name']}")
@@ -1240,6 +1196,7 @@ elif page == "🏡 Dashboard":
                                 "status": "Completed",
                                 "updated_at": datetime.now().astimezone().isoformat(),
                             }).eq("id", item["id"]).execute()
+
                             refresh_data()
                             st.balloons()
                             st.toast("Well done! Another goal achieved! 🎉")
@@ -1249,25 +1206,26 @@ elif page == "🏡 Dashboard":
 
     st.divider()
     st.markdown("### 💌 A little encouragement")
+
     if st.button("✨ Give me a motivational message"):
-        quotes = [
+        st.success(random.choice([
             "You don't have to do everything today. Just take the next step.",
             "Progress, not perfection. You're building something great.",
             "Future you will be glad you started today.",
             "One focused session is better than a day of worrying.",
             "You've handled hard things before. You can do this too.",
             "Small, consistent steps lead to big results.",
-        ]
-        st.success(random.choice(quotes))
+        ]))
 
-# ---------------------------------------------------------
+# =========================================================
 # FOOTER
-# ---------------------------------------------------------
+# =========================================================
 st.divider()
+
 st.markdown(
     f"""
     <div style="text-align:center;padding:10px;color:{theme["muted"]}">
-      Made for your MBA journey with 💙 · One step at a time
+      Made for Suchi's study journey with 💙 · One step at a time
     </div>
     """,
     unsafe_allow_html=True,
