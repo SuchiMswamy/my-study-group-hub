@@ -40,9 +40,11 @@ st.markdown("""
 # Connect to Supabase using Streamlit secrets
 @st.cache_resource
 def connect_supabase():
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
+    url = st.secrets["SUPABASE_URL"].strip().rstrip("/")
+    url = url.removesuffix("/rest/v1")
+    key = st.secrets["SUPABASE_KEY"].strip()
     return create_client(url, key)
+
 
 
 st.title("📚 My Study & Group Hub")
